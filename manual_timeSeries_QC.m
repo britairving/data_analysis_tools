@@ -147,9 +147,10 @@ end
 %% 2 | Create figure and set characteristics
 if opt.spectrogram
   % Add spectrogram showing spectral intensities measured by the SUNA
-  ax = makefig_subplots(1,opt.nvars+1);
+  ax = makefig_subplots(1,opt.nvars+2);
   ax = fliplr(ax); % switch order
-  ax_spec = ax(end);
+  ax_spec1 = ax(end-1);
+  ax_spec2 = ax(end);
 else
   ax = makefig_subplots(1,opt.nvars);
   ax = fliplr(ax); % switch order
@@ -198,21 +199,41 @@ if opt.var_vs_S
 end
 % Plot ISUS spectrogram
 if opt.spectrogram
+  idx_good =  data.dark ~= 0;% % ignore dark
   
-  %   imAlpha=ones(size(data.spectrum_channels'));
-  %   imAlpha(:,data.dark == 0) = 0; % do not show dark values
-  %   hp = imagesc(ax_spec,data.datenum,opt.wavelength,data.spectrum_channels','AlphaData',imAlpha);
-  idx_good =  data.dark ~= 0;% & data.flag <= cfg.flag.not_evaluated; % ignore dark 
-  hp = imagesc(ax_spec,data.datenum(idx_good),opt.wavelength,data.spectrum_channels(idx_good,:)');
-  shading(ax_spec,'flat');
-  ax_spec.YLabel.String = 'Wavelength'; ax_spec.YDir = 'normal';
-  colormap(ax_spec,opt.cmap);     cb = colorbar(ax_spec);
-  cb.Limits    = opt.spec_limits; ax_spec.CLim = cb.Limits;
-  hold(ax_spec,'on'); grid(ax_spec,'on'); 
-  ax_spec.Position(3) = ax(opt.nvars).Position(3);
-  datetick(ax_spec,'x','mm/yyyy','keeplimits')
+  % Plot 2D spectral intensities at 254nm, 350nm, & average 217-240nm (nitrate fit range)
+  i217_to_240 = opt.wavelength >= 217 & opt.wavelength <= 240;
+  i254        = opt.wavelength >= 254 & opt.wavelength < 255;
+  i350        = opt.wavelength >= 350 & opt.wavelength < 351;
+  data.spec_254   = nanmean(data.spectrum_channels(:,i254),2);
+  data.spec_350   = nanmean(data.spectrum_channels(:,i350),2);
+  data.avg_217240 = nanmean(data.spectrum_channels(:,i217_to_240),2);
+  plot(ax_spec1,data.datenum(idx_good),data.avg_217240(idx_good),'ko-','MarkerSize',3,'DisplayName','217-240nm');
+  hold(ax_spec1,'on'); grid(ax_spec1,'on'); ax_spec1.YDir = 'normal';
+  plot(ax_spec1,data.datenum(idx_good),data.spec_254(idx_good),'k<-','MarkerSize',3,'DisplayName','254nm');
+  plot(ax_spec1,data.datenum(idx_good),data.spec_350(idx_good),'k>-','MarkerSize',3,'DisplayName','350nm');
+  ax_spec1.YLim =  opt.spec_limits;
+  hspec_bad1 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.avg_217240(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
+  hspec_bad2 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.spec_254(idx_alreadyflagged),  '<','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
+  hspec_bad3 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.spec_350(idx_alreadyflagged),  '>','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
+
+  ax_spec1.YLabel.String = 'spectra';
+  datetick(ax_spec1,'x','mm/yyyy','keeplimits')
+  hlspec = legend(ax_spec1,'show'); hlspec.FontSize = 10; hlspec.Location = 'best';
+  ax_spec1.Position(3) = ax(opt.nvars).Position(3);
+  ax_spec1.XTickLabel = [];
+  
+  % Now plot spectrogram
+  hp = imagesc(ax_spec2,data.datenum(idx_good),opt.wavelength,data.spectrum_channels(idx_good,:)');
+  shading(ax_spec2,'flat');
+  ax_spec2.YLabel.String = 'Wavelength'; ax_spec2.YDir = 'normal';
+  colormap(ax_spec2,opt.cmap);     cb = colorbar(ax_spec2);
+  cb.Limits    = opt.spec_limits; ax_spec2.CLim = cb.Limits;
+  hold(ax_spec2,'on'); grid(ax_spec2,'on'); 
+  ax_spec2.Position(3) = ax(opt.nvars).Position(3);
+  datetick(ax_spec2,'x','mm/yyyy','keeplimits')
   ax(opt.nvars).XTickLabel = [];
-  ax_spec.XAxis.FontSize  = 12;
+  ax_spec2.XAxis.FontSize  = 12;
 end
 
 %% 4 | Begin Manual QC
@@ -271,9 +292,11 @@ while ~done
       ax(nv).XTick = ax(opt.nvars).XTick;
       ax(nv).XTickLabel = [];
     end
-    set(ax_spec,'xlim',[opt.xmin opt.xmax],'xtick',[opt.xmin:opt.time_int:opt.xmax]);
-    datetick(ax_spec,'x',opt.dntick,'keeplimits','keepticks');
-    ax_spec.XTickLabelRotation = 45;
+    ax_spec1.XTick      = ax(opt.nvars).XTick;
+    ax_spec1.XTickLabel = [];
+    set(ax_spec2,'xlim',[opt.xmin opt.xmax],'xtick',[opt.xmin:opt.time_int:opt.xmax]);
+    datetick(ax_spec2,'x',opt.dntick,'keeplimits','keepticks');
+    ax_spec2.XTickLabelRotation = 45;
   else
     for nv = 1:opt.nvars-1
       ax(nv).XTick = ax(opt.nvars).XTick;
@@ -308,6 +331,11 @@ while ~done
       end
       if opt.var_vs_S
         hS_bad_new = plot(ax_S,data.salinity(opt.idx_bad),data.(var)(opt.idx_bad),'o','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
+      end
+      if opt.spectrogram
+        hspec_bad1new = plot(ax_spec1,data.datenum(opt.idx_bad),data.avg_217240(opt.idx_bad),'o','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
+        hspec_bad2new = plot(ax_spec1,data.datenum(opt.idx_bad),data.spec_254(opt.idx_bad),  '<','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
+        hspec_bad3new = plot(ax_spec1,data.datenum(opt.idx_bad),data.spec_350(opt.idx_bad),  '>','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
       end
       chc_keep = input('keep new flags <1/0>? ');
       if isempty(chc_keep); chc_keep = 0; end % Default to NO
@@ -349,6 +377,15 @@ while ~done
         delete(hS_bad);
         hS_bad = plot(ax_S,data.salinity(idx_alreadyflagged),data.(var)(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
       end
+      if opt.spectrogram
+        delete(hspec_bad1new); delete(hspec_bad1);
+        delete(hspec_bad2new); delete(hspec_bad2);
+        delete(hspec_bad3new); delete(hspec_bad3);
+        hspec_bad1 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.avg_217240(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
+        hspec_bad2 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.spec_254(idx_alreadyflagged),  '<','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
+        hspec_bad3 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.spec_350(idx_alreadyflagged),  '>','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
+      end
+      
       % reset opt.idx_bad
       opt.idx_bad = [];
     end
