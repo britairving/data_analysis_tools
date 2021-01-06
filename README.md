@@ -1,9 +1,9 @@
 # data_analysis_tools
-MATLAB funcitons useful in many applications.
+MATLAB functions useful in many applications.
 
 makefig.m                       | utility script used to create standard figure. Figure characteristics can easily be set such as position, fontsize, fontname, etc. 
 
-makefig_subplots.m              | utility script used to create standard figure with multiple subplots. Axes positions and characterisitics very adaptable. 
+makefig_subplots.m              | utility script used to create standard figure with multiple subplots. Axes positions and characteristics very adaptable. 
 
 standard_printfig_highrespng.m  | utility script used to save figures in a standard format. 
 
