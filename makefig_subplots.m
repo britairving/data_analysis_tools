@@ -18,7 +18,7 @@ if exist('uname','var') && strcmp(uname,'bkirving')
 %   pos_x      = 6;
 %   pos_y      = 4.5;
 else
-  plotheight = 1.3;
+  plotheight = 16;
   plotwidth  = 14;
   pos_x      = 0.5104;
   pos_y      = 6.4479;

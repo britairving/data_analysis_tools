@@ -4,19 +4,19 @@ function [data, cfg] = manual_timeSeries_QC(cfg,data,vars,backup_file)
 %  SYNTAX: [data, cfg] = manual_timeSeries_QC(cfg,data,vars,backup_file)
 %
 %  DESCRIPTION: Clean up time series data visually by inspecting and
-%    manually flagging for spikes, stuck sensors, drop outs, etc. 
+%    manually flagging for spikes, stuck sensors, drop outs, etc.
 %    Developed to QC timeseries data from sensors deployed on a mooring but
-%    could be used for any timeseries data. 
+%    could be used for any timeseries data.
 %
 %  INPUT: [data, cfg] = manual_timeSeries_QC(cfg,data,vars,backup_file)
-%    cfg         | structure containing metadata, paths, flags etc. 
+%    cfg         | structure containing metadata, paths, flags etc.
 %    data        | structure containing data arrays. Fields must contain
 %                   "datenum", as well as all fields defined in "vars"
-%    vars        | cell array with field to inspect and plot. First entry 
-%                   is the field that you are QC'ing. 
+%    vars        | cell array with field to inspect and plot. First entry
+%                   is the field that you are QC'ing.
 %    backup_file | optional filename to load, instead of starting from
-%                   scratch. 
-% 
+%                   scratch.
+%
 %  EXAMPLES:
 %    This script can be used for any datatype, as long as data is a
 %    structure with fields "datenum" and the entries in cell array "vars"
@@ -36,7 +36,8 @@ function [data, cfg] = manual_timeSeries_QC(cfg,data,vars,backup_file)
 %
 %  AUTHORS:
 %    Brita K Irving  <bkirving@alaska.edu, https://github.com/britairving/>
-%    Adapted from a script by Liz Dobbins
+%    Adapted from a script by Liz Dobbins (UAF CFOS), which was originally
+%    adapted from a script by Seth Danielson (UAF CFOS).
 %% 0 | Set defaults and script options
 % Run script in debug mode - if runs into an error, script will stop with all variables accessible.
 dbstop if error
@@ -50,8 +51,8 @@ default_flag.missing_data  = 9; % 9    | Missing Data  | Used as placeholder whe
 % Set basic script options
 opt.vars          = vars;
 opt.zoom_factor   = 2;      % zoom factor, if set to 1, will not zoom
-opt.clr_newflag   = 'g';    % color of newly flagged points 
-opt.clr_oldflag   = 'r';    % color of previously flagged points 
+opt.clr_newflag   = 'g';    % color of newly flagged points
+opt.clr_oldflag   = 'r';    % color of previously flagged points
 opt.prcnt_lims    = [0 100];% adjust to change ylimits on axes
 opt.idx_bad       = [];     % array to store flagged points
 opt.auto_flag_bad = 1;      % 1 = sets all flags as bad, 0 = asks each time how to flag
@@ -75,7 +76,7 @@ if nargin == 4 && exist(backup_file,'file')
   fprintf('Loading QC file: %s\n',backup_file)
   load(backup_file);
 else
-  %% Initialize filenames, variables, etc..  
+  %% Initialize filenames, variables, etc..
   % first check that variable is a field in data structure
   if ~isfield(data,opt.vars{1})
     fprintf('QC variable "%s" not a field in the data structure!\n',opt.vars{1})
@@ -98,7 +99,7 @@ else
   qc_file_tmp = strrep(qc_file,'.mat','_temporary.mat');
   if isfield(cfg,'datadir') && exist(cfg.datadir,'dir')
     qc_file = fullfile(cfg.datadir,qc_file);
-    qc_file_tmp = fullfile(cfg.datadir,qc_file_tmp); 
+    qc_file_tmp = fullfile(cfg.datadir,qc_file_tmp);
   end
   fprintf('Data will be automatically saved to %s (as a backup)\n',qc_file_tmp);
   % store original data so backup available if anything is overwritten
@@ -134,7 +135,7 @@ else
   
   %% Define default data quality flags, if none exist
   if ~isfield(cfg,'flag')
-    % initialize flag structure 
+    % initialize flag structure
     cfg.flag  = default_flag;
   end
   if isfield(data,'flag')
@@ -156,7 +157,7 @@ else
   ax = fliplr(ax); % switch order
 end
 % Add variable vs salinity plot - readjust axes positions
-if opt.var_vs_S 
+if opt.var_vs_S
   for nv = 1:opt.nvars
     ax(nv).Position(3) = ax(nv).Position(3) - ax(nv).Position(3)/4;
   end
@@ -181,7 +182,7 @@ for nv = 1:opt.nvars
     ax(nv).XTickLabel = [];
   end
   hflag = plot(ax(nv),data.datenum(idx_alreadyflagged),data.(opt.vars{nv})(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
-
+  
 end
 ax(opt.nvars).XAxis.FontSize = 12;
 
@@ -194,7 +195,7 @@ if opt.var_vs_S
   hS = plot(ax_S,data.salinity(idx_good),data.(var)(idx_good),'ko','MarkerSize',3,'DisplayName',strrep(opt.vars{nv},'_','\_'));
   ax_S.Title.String = [strrep(var,'_','\_') ' vs salinity'];
   hold(ax_S,'on'); grid(ax_S,'on'); ax_S.YDir = 'normal';
-  hS_bad = plot(ax_S,data.salinity(idx_alreadyflagged),data.(var)(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');   
+  hS_bad = plot(ax_S,data.salinity(idx_alreadyflagged),data.(var)(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
   hlS = legend(ax_S,'show'); hlS.FontSize = 12; hlS.Location = 'best';
 end
 % Plot ISUS spectrogram
@@ -216,7 +217,7 @@ if opt.spectrogram
   hspec_bad1 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.avg_217240(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
   hspec_bad2 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.spec_254(idx_alreadyflagged),  '<','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
   hspec_bad3 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.spec_350(idx_alreadyflagged),  '>','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
-
+  
   ax_spec1.YLabel.String = 'spectra';
   datetick(ax_spec1,'x','mm/yyyy','keeplimits')
   hlspec = legend(ax_spec1,'show'); hlspec.FontSize = 10; hlspec.Location = 'best';
@@ -229,7 +230,7 @@ if opt.spectrogram
   ax_spec2.YLabel.String = 'Wavelength'; ax_spec2.YDir = 'normal';
   colormap(ax_spec2,opt.cmap);     cb = colorbar(ax_spec2);
   cb.Limits    = opt.spec_limits; ax_spec2.CLim = cb.Limits;
-  hold(ax_spec2,'on'); grid(ax_spec2,'on'); 
+  hold(ax_spec2,'on'); grid(ax_spec2,'on');
   ax_spec2.Position(3) = ax(opt.nvars).Position(3);
   datetick(ax_spec2,'x','mm/yyyy','keeplimits')
   ax(opt.nvars).XTickLabel = [];
@@ -237,160 +238,169 @@ if opt.spectrogram
 end
 
 %% 4 | Begin Manual QC
+
 done = 0;
 while ~done
-  fprintf('           \n')
-  fprintf('  < 0 >   Set Zoom Factor\n')
-  fprintf('  < 1 >   Zoom In\n')
-  fprintf('  < 2 >   Zoom Out\n')
-  fprintf('  < 3 >   Move Left\n')
-  fprintf('  < 4 >   Move Right\n')
-  fprintf('  < 5 >   Select ([X,Y]) Range of Points\n');
-  fprintf('  < 6 >   Select (X) Range of Points\n')
-  fprintf('  < 7 >   Make High Kill Threshold\n')
-  fprintf('  < 8 >   Make Low Kill Threshold\n')
-  if opt.var_vs_S
-    fprintf('  < 9 >   Select ([X,Y]) Range of Points on SALINITY plot\n')
-  end
-  fprintf('  <10 >   Finish and return\n')
-  fprintf('  <11 >   Save Plot\n')
-  fprintf('  <99 >   Stop [default]\n')
-  fprintf('  <199>   Reset Badpoints\n')
-  s1 = input('Enter choice: ');
-  % default to keyboard if empty or incorrect
-  if isstring(s1) || isempty(s1)
-    if isstring(s1)
-      fprintf('\nIncorrect entry - retry (must be numeric)\n')
+  try
+    fprintf('           \n')
+    fprintf('  < 0 >   Set Zoom Factor\n')
+    fprintf('  < 1 >   Zoom In\n')
+    fprintf('  < 2 >   Zoom Out\n')
+    fprintf('  < 3 >   Move Left\n')
+    fprintf('  < 4 >   Move Right\n')
+    fprintf('  < 5 >   Select ([X,Y]) Range of Points\n');
+    fprintf('  < 6 >   Select (X) Range of Points\n')
+    fprintf('  < 7 >   Make High Kill Threshold\n')
+    fprintf('  < 8 >   Make Low Kill Threshold\n')
+    if opt.var_vs_S
+      fprintf('  < 9 >   Select ([X,Y]) Range of Points on SALINITY plot\n')
     end
-    s1 = 99;
-  end
-  xrange = opt.xmax-opt.xmin;
-  %% options for s1 selection
-  s1_choice_selection
-  idx_good = data.flag <= cfg.flag.not_evaluated;
-  trng = data.datenum >= opt.xmin & data.datenum <= opt.xmax;
-  %% update plots limits to reflect changes
-  ax(1).XLim = [opt.xmin opt.xmax];
-  if sum(idx_good) > 0 % continue if no good data within range (or if out of range)
-    ax(1).YLim = prctile(data.(var)(trng),opt.prcnt_lims);
-  end
-  xrange = opt.xmax - opt.xmin;
-  opt.time_int = fix(xrange/10);
-  if opt.time_int == 0
-    opt.time_int = round(xrange/10,2);
-  end
-  if opt.time_int > 5
-     opt.dntick = 'mm/dd';
-  elseif opt.time_int <= 5
-     opt.dntick = 'mm/dd HH:MM';
-  end
-  set(ax(opt.nvars),'xlim',[opt.xmin opt.xmax],'xtick',[opt.xmin:opt.time_int:opt.xmax]);
-  datetick(ax(opt.nvars),'x',opt.dntick,'keeplimits','keepticks');
-  ax(opt.nvars).XTickLabelRotation = 45;
-  if opt.spectrogram
-    for nv = 1:opt.nvars
-      ax(nv).XTick = ax(opt.nvars).XTick;
-      ax(nv).XTickLabel = [];
+    fprintf('  <10 >   Finish and return\n')
+    fprintf('  <11 >   Save Plot\n')
+    fprintf('  <99 >   Stop [default]\n')
+    fprintf('  <199>   Reset Badpoints\n')
+    s1 = input('Enter choice: ');
+    % default to keyboard if empty or incorrect
+    if isstring(s1) || isempty(s1)
+      if isstring(s1)
+        fprintf('\nIncorrect entry - retry (must be numeric)\n')
+      end
+      s1 = 99;
     end
-    ax_spec1.XTick      = ax(opt.nvars).XTick;
-    ax_spec1.XTickLabel = [];
-    set(ax_spec2,'xlim',[opt.xmin opt.xmax],'xtick',[opt.xmin:opt.time_int:opt.xmax]);
-    datetick(ax_spec2,'x',opt.dntick,'keeplimits','keepticks');
-    ax_spec2.XTickLabelRotation = 45;
-  else
-    for nv = 1:opt.nvars-1
-      ax(nv).XTick = ax(opt.nvars).XTick;
-      ax(nv).XTickLabel = [];
+    xrange = opt.xmax-opt.xmin;
+    %% options for s1 selection
+    s1_choice_selection
+    idx_good = data.flag <= cfg.flag.not_evaluated;
+    trng = data.datenum >= opt.xmin & data.datenum <= opt.xmax;
+    %% update plots limits to reflect changes
+    ax(1).XLim = [opt.xmin opt.xmax];
+    if sum(idx_good) > 0 % continue if no good data within range (or if out of range)
+      ax(1).YLim = prctile(data.(var)(trng),opt.prcnt_lims);
     end
-  end
-
-  %% Show new range on salinity plot
-  if opt.var_vs_S
-    try delete(hS_rng);  end
-    hS_rng = plot(ax_S,data.salinity(trng),data.(var)(trng),'o','MarkerSize',2,'Color',[0.8 0.8 0],'MarkerFaceColor',[0.8 0.8 0],'DisplayName','current range');
-    delete(hS_bad);
-    hS_bad = plot(ax_S,data.salinity(idx_alreadyflagged),data.(var)(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
-  end
-  %% update plots to show flagged points
-  if ~isempty(opt.idx_bad)
-    % ignore flagged points that are exactly zero as this usually indicates
-    % different measurement interval
-    opt.idx_bad = find(opt.idx_bad);
-    opt.idx_bad(data.(var)(opt.idx_bad) == 0) = [];
-    % ignore flagged points outside of current range
-    t1 = datetime(opt.xmin,'ConvertFrom','datenum');
-    t2 = datetime(opt.xmax,'ConvertFrom','datenum');
-    opt.idx_bad(~isbetween(datetime(data.datenum(opt.idx_bad),'ConvertFrom','datenum'),t1,t2)) = [];
-    % ignore flagged points that are already flagged
-    idx_alreadyflagged = find(data.flag >  cfg.flag.not_evaluated);
-    opt.idx_bad(ismember(opt.idx_bad,idx_alreadyflagged)) = [];
-    %% If any flagged points are left, decide to keep or throw out
-    if sum(opt.idx_bad) > 0
+    xrange = opt.xmax - opt.xmin;
+    opt.time_int = fix(xrange/10);
+    if opt.time_int == 0
+      opt.time_int = round(xrange/10,2);
+    end
+    if opt.time_int > 5
+      opt.dntick = 'mm/dd';
+    elseif opt.time_int <= 5
+      opt.dntick = 'mm/dd HH:MM';
+    end
+    set(ax(opt.nvars),'xlim',[opt.xmin opt.xmax],'xtick',[opt.xmin:opt.time_int:opt.xmax]);
+    datetick(ax(opt.nvars),'x',opt.dntick,'keeplimits','keepticks');
+    ax(opt.nvars).XTickLabelRotation = 45;
+    if opt.spectrogram
       for nv = 1:opt.nvars
-        hbad.(['a' num2str(nv)]) = plot(ax(nv),data.datenum(opt.idx_bad),data.(opt.vars{nv})(opt.idx_bad),'o','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
+        ax(nv).XTick = ax(opt.nvars).XTick;
+        ax(nv).XTickLabel = [];
       end
-      if opt.var_vs_S
-        hS_bad_new = plot(ax_S,data.salinity(opt.idx_bad),data.(var)(opt.idx_bad),'o','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
+      ax_spec1.XTick      = ax(opt.nvars).XTick;
+      ax_spec1.XTickLabel = [];
+      set(ax_spec2,'xlim',[opt.xmin opt.xmax],'xtick',[opt.xmin:opt.time_int:opt.xmax]);
+      datetick(ax_spec2,'x',opt.dntick,'keeplimits','keepticks');
+      ax_spec2.XTickLabelRotation = 45;
+    else
+      for nv = 1:opt.nvars-1
+        ax(nv).XTick = ax(opt.nvars).XTick;
+        ax(nv).XTickLabel = [];
       end
-      if opt.spectrogram
-        hspec_bad1new = plot(ax_spec1,data.datenum(opt.idx_bad),data.avg_217240(opt.idx_bad),'o','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
-        hspec_bad2new = plot(ax_spec1,data.datenum(opt.idx_bad),data.spec_254(opt.idx_bad),  '<','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
-        hspec_bad3new = plot(ax_spec1,data.datenum(opt.idx_bad),data.spec_350(opt.idx_bad),  '>','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
-      end
-      chc_keep = input('keep new flags <1/0>? ');
-      if isempty(chc_keep); chc_keep = 0; end % Default to NO
-      if chc_keep
-        % Let user decide which flag value to apply
-        if ~opt.auto_flag_bad
-          fprintf(' ...flag as...\n')
-          flags = fieldnames(cfg.flag);
-          for nflag = 1:numel(flags)
-            if strcmp(flags{nflag},'bad')
-              fprintf('   <%d> %s       ** default ** <return>\n',cfg.flag.(flags{nflag}),flags{nflag})
-            else
-              fprintf('   <%d> %s\n',cfg.flag.(flags{nflag}),flags{nflag})
-            end
-          end
-          flag_chc = input('   enter choice: ');
-          if isempty(flag_chc)
-            flag_val = cfg.flag.bad;
-          else
-            flag_val = flag_chc;
-          end
-        else % No user input, just flag as bad
-          flag_val = cfg.flag.bad;
+    end
+    
+    %% Show new range on salinity plot
+    if opt.var_vs_S
+      try delete(hS_rng);  end
+      hS_rng = plot(ax_S,data.salinity(trng),data.(var)(trng),'o','MarkerSize',2,'Color',[0.8 0.8 0],'MarkerFaceColor',[0.8 0.8 0],'DisplayName','current range');
+      delete(hS_bad);
+      hS_bad = plot(ax_S,data.salinity(idx_alreadyflagged),data.(var)(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
+    end
+    %% update plots to show flagged points
+    if ~isempty(opt.idx_bad)
+      % ignore flagged points that are exactly zero as this usually indicates
+      % different measurement interval
+      opt.idx_bad = find(opt.idx_bad);
+      opt.idx_bad(data.(var)(opt.idx_bad) == 0) = [];
+      % ignore flagged points outside of current range
+      t1 = datetime(opt.xmin,'ConvertFrom','datenum');
+      t2 = datetime(opt.xmax,'ConvertFrom','datenum');
+      opt.idx_bad(~isbetween(datetime(data.datenum(opt.idx_bad),'ConvertFrom','datenum'),t1,t2)) = [];
+      % ignore flagged points that are already flagged
+      idx_alreadyflagged = find(data.flag >  cfg.flag.not_evaluated);
+      opt.idx_bad(ismember(opt.idx_bad,idx_alreadyflagged)) = [];
+      %% If any flagged points are left, decide to keep or throw out
+      if sum(opt.idx_bad) > 0
+        for nv = 1:opt.nvars
+          hbad.(['a' num2str(nv)]) = plot(ax(nv),data.datenum(opt.idx_bad),data.(opt.vars{nv})(opt.idx_bad),'o','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
         end
-        data.flag(opt.idx_bad) = flag_val;
-        delete(hflag);
-        idx_alreadyflagged = find(data.flag >  cfg.flag.not_evaluated);
-        hflag = plot(ax(1),data.datenum(idx_alreadyflagged),data.(var)(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
-        % save badpoints so can load if system crash
-        fprintf('saving intermediate QC data to %s\n',qc_file_tmp);
-        save(qc_file_tmp, 'data','cfg','opt','-v7.3');
+        if opt.var_vs_S
+          hS_bad_new = plot(ax_S,data.salinity(opt.idx_bad),data.(var)(opt.idx_bad),'o','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
+        end
+        if opt.spectrogram
+          hspec_bad1new = plot(ax_spec1,data.datenum(opt.idx_bad),data.avg_217240(opt.idx_bad),'o','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
+          hspec_bad2new = plot(ax_spec1,data.datenum(opt.idx_bad),data.spec_254(opt.idx_bad),  '<','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
+          hspec_bad3new = plot(ax_spec1,data.datenum(opt.idx_bad),data.spec_350(opt.idx_bad),  '>','MarkerSize',3,'Color',opt.clr_newflag,'MarkerFaceColor',opt.clr_newflag,'DisplayName','new flags');
+        end
+        chc_keep = input('keep new flags <1/0>? ');
+        if isempty(chc_keep); chc_keep = 0; end % Default to NO
+        if chc_keep
+          % Let user decide which flag value to apply
+          if ~opt.auto_flag_bad
+            fprintf(' ...flag as...\n')
+            flags = fieldnames(cfg.flag);
+            for nflag = 1:numel(flags)
+              if strcmp(flags{nflag},'bad')
+                fprintf('   <%d> %s       ** default ** <return>\n',cfg.flag.(flags{nflag}),flags{nflag})
+              else
+                fprintf('   <%d> %s\n',cfg.flag.(flags{nflag}),flags{nflag})
+              end
+            end
+            flag_chc = input('   enter choice: ');
+            if isempty(flag_chc)
+              flag_val = cfg.flag.bad;
+            else
+              flag_val = flag_chc;
+            end
+          else % No user input, just flag as bad
+            flag_val = cfg.flag.bad;
+          end
+          data.flag(opt.idx_bad) = flag_val;
+          delete(hflag);
+          idx_alreadyflagged = find(data.flag >  cfg.flag.not_evaluated);
+          hflag = plot(ax(1),data.datenum(idx_alreadyflagged),data.(var)(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
+          % save badpoints so can load if system crash
+          fprintf('saving intermediate QC data to %s\n',qc_file_tmp);
+          save(qc_file_tmp, 'data','cfg','opt','-v7.3');
+        end
+        % Clear
+        for nv = 1:opt.nvars
+          delete( hbad.(['a' num2str(nv)]) );
+        end
+        if opt.var_vs_S
+          delete(hS_bad_new);
+          delete(hS_bad);
+          hS_bad = plot(ax_S,data.salinity(idx_alreadyflagged),data.(var)(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
+        end
+        if opt.spectrogram
+          delete(hspec_bad1new); delete(hspec_bad1);
+          delete(hspec_bad2new); delete(hspec_bad2);
+          delete(hspec_bad3new); delete(hspec_bad3);
+          hspec_bad1 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.avg_217240(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
+          hspec_bad2 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.spec_254(idx_alreadyflagged),  '<','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
+          hspec_bad3 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.spec_350(idx_alreadyflagged),  '>','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
+        end
+        
+        % reset opt.idx_bad
+        opt.idx_bad = [];
       end
-      % Clear
-      for nv = 1:opt.nvars
-        delete( hbad.(['a' num2str(nv)]) );
-      end
-      if opt.var_vs_S
-        delete(hS_bad_new);
-        delete(hS_bad);
-        hS_bad = plot(ax_S,data.salinity(idx_alreadyflagged),data.(var)(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
-      end
-      if opt.spectrogram
-        delete(hspec_bad1new); delete(hspec_bad1);
-        delete(hspec_bad2new); delete(hspec_bad2);
-        delete(hspec_bad3new); delete(hspec_bad3);
-        hspec_bad1 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.avg_217240(idx_alreadyflagged),'o','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
-        hspec_bad2 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.spec_254(idx_alreadyflagged),  '<','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
-        hspec_bad3 = plot(ax_spec1,data.datenum(idx_alreadyflagged),data.spec_350(idx_alreadyflagged),  '>','MarkerSize',3,'Color',opt.clr_oldflag,'MarkerFaceColor',opt.clr_oldflag,'DisplayName','flagged');
-      end
-      
-      % reset opt.idx_bad
-      opt.idx_bad = [];
     end
+  catch
+    fprintf('something went wrong here...\n')
+    fprintf('in keyboard mode... enter "dbcont" to continue\n')
+    keyboard
+    done = 0;
   end
 end % while ~done
+
 fprintf('Chose to exit QC script, exiting now\n');
 
 %% function s1_choice_selection
@@ -460,7 +470,7 @@ fprintf('Chose to exit QC script, exiting now\n');
         t1 = x(1);
         t2 = x(1)+x(3);
         rng = data.datenum >= t1 & data.datenum <= t2 & ...
-              data.(var)   >= x(2) & data.(var) <= x(2)+x(4);
+          data.(var)   >= x(2) & data.(var) <= x(2)+x(4);
         opt.idx_bad = rng;
         % ---------------------------------------------------------------------
       case 6   % Select (X) Range of Points
@@ -485,7 +495,7 @@ fprintf('Chose to exit QC script, exiting now\n');
           fprintf('  Draw rectangle around bad points \n');
           x = getrect(ax_S); %returned as a 4-element numeric vector with the form [opt.xmin ymin width height].
           rng = data.salinity >= x(1) & data.salinity <= x(1)+x(3) & ...
-                data.(var)    >= x(2) & data.(var)    <= x(2)+x(4);
+            data.(var)    >= x(2) & data.(var)    <= x(2)+x(4);
           opt.idx_bad = rng;
           %  reset to full data view
           opt.xmin = min(data.datenum);
@@ -524,7 +534,7 @@ fprintf('Chose to exit QC script, exiting now\n');
             data.flag = ones(size(data.flag)) * cfg.flag.not_evaluated; % set all to not evaluated
           else
             % reset to original flags;
-            data.flag = data.flag_0; 
+            data.flag = data.flag_0;
           end
           save(qc_file_tmp, 'data','cfg','opt','-v7.3');
         end

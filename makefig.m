@@ -27,7 +27,7 @@ set(fig,'DefaultTextFontname',    'Times');
 set(fig,'defaultTextFontSize',    20);
 set(fig,'DefaultTextFontName',    'Times');
 set(fig,'DefaultAxesFontName',    'Times');
-set(fig,'DefaultAxesFontSize',    24);
+set(fig,'DefaultAxesFontSize',    18);
 set(fig,'DefaultAxesFontWeight',  'Bold');
 set(fig, 'color', 'w');
 set(fig,'DefaultAxesLineStyleOrder','-|--|-.|:');
