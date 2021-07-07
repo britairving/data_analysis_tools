@@ -95,7 +95,11 @@ switch cfg.project
     % Read AMBON 2017 data
     ctd_file = fullfile(cfg.path.calcasts,'AMBON2015_2017','AMBON2017_ctd_L3_v1.csv');
     ctd3 = readtable(ctd_file);
-    ctd_match = ismember(ctd3.Station,unique(calcasts.StationID));  %ctd_match = strcmp(ctd3.Station,cfg.discrete_ref.StationID{1});
+    try
+      ctd_match = ismember(ctd3.Station,unique(cfg.calcasts.StationID));  %ctd_match = strcmp(ctd3.Station,cfg.discrete_ref.StationID{1});
+    catch
+      keyboard
+    end
     ctd3 = ctd3(ctd_match,:);
     % calculate density, datenum, and datetime
     ctd3.density = sw_dens(ctd3.salinity__psu_,ctd3.temperature__C_,ctd3.pressure__dbar_);

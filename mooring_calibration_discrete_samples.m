@@ -96,6 +96,11 @@ else
   plot_cor = 0;
 end
 
+if strcmp(cfg.project,'CEO_2017_2018') && contains(smo_var,'ph','IgnoreCase',true)
+  idx_keep = strcmp(cfg.calcasts.CRUISE,'HLY1702') & strcmp(cfg.calcasts.StationID,'CEO');
+  cfg.calcasts = cfg.calcasts(idx_keep,:);
+end
+
 %% 2  | Calculate distance in time and space (horizontally and vertically)
 % Loops through cfg.calcasts table and calculates the distance in time,
 % latitude/longitude, and depth from each row with the nearest point in
@@ -128,8 +133,9 @@ end
 %% 3  | (ONLY PH) Calculate pH for samples where discrete pH not available
 % Insitu pH is calculated later, if applicable
 if strcmp(calvar,'pH')
-  cfg.calasts = calculate_co2sys_ph('calc',cfg,cfg.calcasts);
+  cfg.calcasts = calculate_co2sys_ph('calc',cfg,cfg.calcasts);
 end
+
 
 %% 4  | Limit to Calibration casts that contain relevant variable
 cfg.calcasts.parameter = cell(size(cfg.calcasts.CastID));
