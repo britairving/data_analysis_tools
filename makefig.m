@@ -13,13 +13,15 @@ while ishandle(n)
   n = n + 1;
 end
 fig = figure(n);
-fig.Units = 'inches';
-%fig.Position = [20.3021 0.5104 17.0312 9.4479];
-if ispc
-  fig.Position  = [20 0.415 20 10.03125];
-else
-  fig.Position  = [20 8 15 10];
-end
+% fig.Units = 'inches';
+% %fig.Position = [20.3021 0.5104 17.0312 9.4479];
+% if ispc
+%   fig.Position  = [20 0.415 20 10.03125];
+% else
+%   fig.Position  = [20 8 15 10];
+% end
+scnsize = get(0,'ScreenSize');
+fig.Position = scnsize;
 fig.PaperPositionMode = 'auto';
 fig.PaperOrientation = 'portrait';
 % axes defaults
