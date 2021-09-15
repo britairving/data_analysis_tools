@@ -42,6 +42,12 @@ switch type
     cals.pH_insitu_salinity = nan(size(cals.pH));
     cals.pH_insitu_temperature = nan(size(cals.pH));
 end
+% add to full array so can calulated pH with data inteprolated to mooring depth
+phos_all = [];
+sil_all  = [];
+TA_all   = [];
+DIC_all  = [];
+pH_all   = [];
 
 % Loop through each sample
 for nsamp = 1:size(cals,1)
@@ -68,7 +74,7 @@ for nsamp = 1:size(cals,1)
     else; TA = NaN;
     end
     % Pull out DIC if unavailable
-    if isfinite(cast.DIC); DIC = cast.DIC;        DIC_u = cast.DIC_u;
+    if isfinite(cast.DIC); DIC = cast.DIC;     DIC_u = cast.DIC_u;
     elseif isfinite(cast.TCO2);  DIC = cast.TCO2;% DIC_u = cast.TCO2_u;
     else; DIC = NaN;
     end
@@ -78,14 +84,14 @@ for nsamp = 1:size(cals,1)
     elseif isfinite(cast.pH_calc); pH = cast.pH_calc;
     else; pH = NaN;
     end
-    
+      
     % Calculate pH for discrete sample
     if strcmp(type,'calc') && isfinite(DIC) && isfinite(TA)
       [DATA_cal]=CO2SYS(DIC,TA,2,1,cast.Salinity,cast.Temp, cast.Temp,...
         cast.Pressure,cast.Pressure,sil,phos, phscale,k1k2,kso4);
       % Pull out pH and pCO2
-      cals.pH_calc(nsamp)   = round(DATA_cal(18),4);
-      cals.pCO2_calc(nsamp) = round(DATA_cal(19),4);
+      cals.pH_calc(nsamp)   = round(DATA_cal(37),4); % 37 - pH output (Total)    ()      
+      cals.pCO2_calc(nsamp) = round(DATA_cal(19),4); % 19 - pCO2 output          (uatm)
     % Calculate pH at insitu conditions
     elseif strcmp(type,'insitu')
       %cast_name = strrep(cast.StationID,'.','_');
@@ -102,18 +108,18 @@ for nsamp = 1:size(cals,1)
             cast.Pressure,mtch.(cast_name).pressure,sil,phos, phscale,k1k2,kso4);
           [DATA_cal3]=CO2SYS(DIC,pH,2,3,cast.Salinity,cast.Temp, mtch.(cast_name).temperature,...
             cast.Pressure,mtch.(cast_name).pressure,sil,phos, phscale,k1k2,kso4);
-          ph   = round(nanmean([DATA_cal1(18) DATA_cal2(18) DATA_cal3(18)]),4);
+          ph   = round(nanmean([DATA_cal1(37) DATA_cal2(37) DATA_cal3(37)]),4);
           pco2 = round(nanmean([DATA_cal1(19) DATA_cal2(19) DATA_cal3(19)]),4);
         elseif isfinite(DIC) && isfinite(pH)
           [DATA_cal]=CO2SYS(DIC,pH,2,3,cast.Salinity,cast.Temp, mtch.(cast_name).temperature,...
             cast.Pressure,mtch.(cast_name).pressure,sil,phos, phscale,k1k2,kso4);
-          ph   = round(DATA_cal(18),4);
+          ph   = round(DATA_cal(37),4);
           pco2 = round(DATA_cal(19),4);
         elseif isfinite(TA) && isfinite(pH)
           [DATA_cal]=CO2SYS(pH,TA,3,1,cast.Salinity,cast.Temp, mtch.(cast_name).temperature,...
             cast.Pressure,mtch.(cast_name).pressure,sil,phos, phscale,k1k2,kso4);
-          ph   = round(DATA_cal(18),4);
-          pco2 = round(DATA_cal(19),4);
+          ph   = round(DATA_cal(37),4); % 37 - pH output (Total)    ()      
+          pco2 = round(DATA_cal(19),4); % 19 - pCO2 output          (uatm)
         else
           ph_insitu = 0;
           pco2      = 0;
