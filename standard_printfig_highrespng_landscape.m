@@ -1,4 +1,4 @@
-function standard_printfig_highrespng(figname)
+function standard_printfig_highrespng_landscape(figname)
 %% function fig = makefig
 % print figure in standard way
 % author: Brita Irving <bkirving@alaska.edu>
