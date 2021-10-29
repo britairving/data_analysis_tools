@@ -20,6 +20,8 @@ if ispc
 else
   fig.Position  = [20 8 15 10];
 end
+% scnsize = get(0,'ScreenSize');
+% fig.Position = scnsize;
 fig.PaperPositionMode = 'auto';
 fig.PaperOrientation = 'portrait';
 % axes defaults

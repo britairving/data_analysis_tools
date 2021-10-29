@@ -6,17 +6,17 @@ function cfg = mooring_calibration_discrete_samples(data_avg,meta_proc,cfg)
 %
 %  Description:
 %     Used to select discrete bottle data as calibration points for
-%     determining offset and/or drift for various data. 
+%     determining offset and/or drift for various data.
 %
 %     Density and salinity are shown from both the bottle and profile data
 %     and are useful to indicating if they are sampling the same water mass
 %     as the moored sensor itself. I.e. if the bottle was tripped nearby
 %     in time and distance, but the water mass has much different
 %     charactersitics than reported by the sensor, you know you cannot use
-%     that bottle data as a calibration point. 
+%     that bottle data as a calibration point.
 %
 %  Inputs:
-%     data_avg  | structure containing burst resolution processed data 
+%     data_avg  | structure containing burst resolution processed data
 %     meta_proc | structure containing flags
 %     cfg       | structure containing dataset information, table of
 %                 calibration casts, necessary paths, parameter, etc.
@@ -29,22 +29,22 @@ function cfg = mooring_calibration_discrete_samples(data_avg,meta_proc,cfg)
 %     cfg       | structure containing dataset information, table of
 %                 calibration casts, necessary paths, parameter, etc.
 %
-%  Dependencies: 
+%  Dependencies:
 %     GSW Toolbox: https://github.com/TEOS-10/GSW-Matlab
 %     SW Toolbox: http://www.cmar.csiro.au/datacentre/ext_docs/seawater.htm
 %       (I know this is redundant, but sw_dens.m is just so much simpler..)
 %     m_map Toolbox: https://www.eoas.ubc.ca/~rich/map.html
-% 
+%
 %  Notes:
 %     This script is very interactive and requires the user to carefully
 %     examine the plots to determine if specific discrete bottle samples
-%     will be useful as calibration points for correcting a dataset. 
-% 
+%     will be useful as calibration points for correcting a dataset.
+%
 %     Code folding is a very useful way to get an idea of what script
-%     entails. 
+%     entails.
 %
 %     See Mooring_CalibrationSamples_template.xlsx for template on how to
-%     store discrete samples. 
+%     store discrete samples.
 %
 %  Authors:
 %    Brita K Irving  <bkirving@alaska.edu>
@@ -56,9 +56,12 @@ else
 end
 close all;
 
-% limits calibration casts to within +/- day_int 
+% limits calibration casts to within +/- day_int
 day_int = 3;
-
+% Catch if CRUISE field read in oddly
+if ismember('x__CRUISE',cfg.calcasts.Properties.VariableNames)
+  cfg.calcasts.CRUISE = cfg.calcasts.x__CRUISE;
+end
 %% 1  | Select which variable to use
 % Enter new variables here!
 if isfield(cfg,'parameter')
@@ -67,7 +70,7 @@ elseif isfield(data_avg,'ph_int')     % SeapHOx pH
   inst   = 'SeapHOx';
   calvar = 'pH';      % Variable name that matches corresponding variable in discrete spreadsheet
   if isfield(data_avg,'ph_smo')
-    smo_var = 'ph_smo';     % smoothed pH 
+    smo_var = 'ph_smo';     % smoothed pH
   else
     smo_var = 'ph_ext_smo'; % smoothed pH from external electrode
   end
@@ -81,9 +84,9 @@ elseif isfield(data_avg,'NO3_uM') % SUNA Nitrate
     cor_var = 'NO3_uM_TCSS_cor';
   end
 else
-  % Enter information for parameter here following the above model   
-  % Make sure to add the necessary fields to "ctd" structure in the 
-  % read_ctd_profiles_by_project.m script. 
+  % Enter information for parameter here following the above model
+  % Make sure to add the necessary fields to "ctd" structure in the
+  % read_ctd_profiles_by_project.m script.
   fprintf('parameter unknown... set up here\n')
   keyboard
 end
@@ -96,26 +99,27 @@ else
   plot_cor = 0;
 end
 
+
 if strcmp(cfg.project,'CEO_2017_2018') && contains(smo_var,'ph','IgnoreCase',true)
   idx_keep = strcmp(cfg.calcasts.CRUISE,'HLY1702') & strcmp(cfg.calcasts.StationID,'CEO');
   cfg.calcasts = cfg.calcasts(idx_keep,:);
 end
 
+
 %% 2  | Calculate distance in time and space (horizontally and vertically)
 % Loops through cfg.calcasts table and calculates the distance in time,
 % latitude/longitude, and depth from each row with the nearest point in
-% data_avg. 
+% data_avg.
 cfg.calcasts.distkm = nan(size(cfg.calcasts.CastID));
 cfg.calcasts.distdb = nan(size(cfg.calcasts.CastID));
 cfg.calcasts.disthr = nan(size(cfg.calcasts.CastID));
 for nsamp = 1:size(cfg.calcasts,1)
-  % find distance horizontally and vertically
+  % Find distance horizontally and vertically
   cfg.calcasts.distkm(nsamp) = round(m_lldist([cfg.calcasts.Lon(nsamp) cfg.mooring.longitude],[cfg.calcasts.Lat(nsamp) cfg.mooring.latitude]),2);     % km separating measurements
   % Calculate pressure
   if isnan(cfg.calcasts.Pressure(nsamp))
     cfg.calcasts.Pressure(nsamp) = gsw_p_from_z(-cfg.calcasts.DepSM(nsamp),cfg.calcasts.Lat(nsamp));
   end
-  cfg.calcasts.distdb(nsamp) = round(abs(cfg.calcasts.Pressure(nsamp)-nanmean(data_avg.pressure)),2);
   % find distance in time
   idx_gd = find(data_avg.flag <= meta_proc.flag.not_evaluated);
   time_dist = round(cfg.calcasts.dnum(nsamp)-data_avg.datenum(idx_gd),2);
@@ -124,10 +128,17 @@ for nsamp = 1:size(cfg.calcasts,1)
   cfg.calcasts.disthr(nsamp) = round(abs(etime(datevec(data_avg.datenum(idx_time_near)),datevec(cfg.calcasts.dnum(nsamp))))./60./60,2);
   %deploy_hours  = round(abs(etime(datevec(cfg.mooring.deploydate),datevec(cfg.discrete_ref.dnum(nsamp))))./60./60,2);  % Hours separating measurements (2 decimal places)
   %recover_hours = round(abs(etime(datevec(cfg.mooring.recoverdate),datevec(cfg.discrete_ref.dnum(nsamp))))./60./60,2); % Hours separating measurements from recovery
+  % Calculate the distance vertically (dbar), mean of pressure +/- day_int 
+  idx_pressure_range = data_avg.datenum >= data_avg.datenum(idx_time_near)-day_int & data_avg.datenum <= data_avg.datenum(idx_time_near)+day_int;
+  mooring_pressure = nanmean(data_avg.pressure(idx_pressure_range));
+  
+  cfg.calcasts.distdb(nsamp) = round(abs(cfg.calcasts.Pressure(nsamp)-mooring_pressure),2);
+  
   % Calculate density
   if isnan(cfg.calcasts.density(nsamp))
     cfg.calcasts.density(nsamp) = sw_dens(cfg.calcasts.Salinity(nsamp),cfg.calcasts.Temp(nsamp), cfg.calcasts.Pressure(nsamp));
   end
+
 end
 
 %% 3  | (ONLY PH) Calculate pH for samples where discrete pH not available
@@ -135,6 +146,7 @@ end
 if strcmp(calvar,'pH')
   cfg.calcasts = calculate_co2sys_ph('calc',cfg,cfg.calcasts);
 end
+
 
 
 %% 4  | Limit to Calibration casts that contain relevant variable
@@ -177,7 +189,7 @@ for nsamp = 1:size(cfg.calcasts,1)
       if isfinite(cal.pH_calc)
         idx_match(nsamp) = true;
         cal.parameter = {'pH_calc'};
-
+        
       end
     end
   end
@@ -195,7 +207,7 @@ else
 end
 % calcasts(calcasts.distdb > 7,:) = [];
 
-%% 5  | Load full depth ctd profile 
+%% 5  | Load full depth ctd profile
 % This is helpful because it shows the profile behavior with depth so
 % allows the user to visually identify if there is something suspicious
 % with the bottle data.
@@ -213,6 +225,30 @@ for ncast = 1:numel(cruise_station)
   var_name = calcasts.parameter{ mtch.(cast_name).idx_bot(1)};
   mtch.(cast_name).idx_bot = mtch.(cast_name).idx_bot(isfinite(calcasts.(var_name)(mtch.(cast_name).idx_bot)));
 end
+
+
+%% 3 | Interpolate data to the mooring pressure
+
+for ncast = 1:numel(cruise_station)
+idx_cast = strcmp(calcasts.cruise_station,cruise_station{ncast});  
+  try
+    fields = calcasts.Properties.VariableNames;
+    fields = fields(find(strcmp(fields,'Niskin'))+1:end);
+    % Loop through fields and calculated interpolated value
+    for nfield = 1:numel(fields)
+      sfield = fields{nfield};
+      % skip these variables
+      if ~ismember(sfield,{'dnum' 'distkm' 'distdb' 'disthr'})
+        if isnumeric(calcasts.(sfield)) && any(isfinite(calcasts.(sfield))) && ~isdatetime(calcasts.(sfield))
+          calcasts.([sfield '_interp'])(idx_cast) = interp1(calcasts.Pressure(idx_cast),calcasts.(sfield)(idx_cast),mooring_pressure);
+        end
+      end
+    end
+  catch
+    keyboard
+  end
+end
+
 
 %% 7  | For each cast, pull out moored sensor data
 % now find day_int day range for data
@@ -233,6 +269,7 @@ for ncast = 1:numel(cruise_station)
     end
     % now fill mtch struture
     mtch.(cast_name).idx_data     = trng;
+    mtch.(cast_name).datenum      = nanmean(data_avg.datenum(trng));
     mtch.(cast_name).pressure     = round(nanmean(data_avg.pressure(trng)),2);
     mtch.(cast_name).temperature  = round(nanmean(data_avg.temperature(trng)),2);
     mtch.(cast_name).salinity     = round(nanmean(data_avg.salinity(trng)),2);
@@ -246,12 +283,13 @@ end
 % remove casts that do not fit within window
 if ~isempty(rm_casts)
   mtch  = rmfield(mtch,rm_casts);
+  cruise_station(strcmp(cruise_station,rm_casts)) = [];
 end
 
-%% 8  | (ONLY PH) Calculate in-situ pH 
+%% 8  | (ONLY PH) Calculate in-situ pH
 if strcmp(calvar,'pH')
   % Calculate insitu pH
-  calculate_co2sys_ph('insitu',cfg,calcasts,mtch)
+  calcasts = calculate_co2sys_ph('insitu',cfg,calcasts,mtch);
 end
 
 %% 9  | Plot#1 | CTD cast with locations of discrete samples
@@ -283,7 +321,7 @@ for ncast = 1:numel(cruise_station)
   bot_str = [ctd_str ' ' strrep(calcasts.parameter{idx_bot(1)},'_','\_') ];
   var_name = calcasts.parameter{idx_bot(1)};
   try
-  imin = nearest(calcasts.Pressure(idx_bot),mtch.(cast_name).pressure);
+    imin = nearest(calcasts.Pressure(idx_bot),mtch.(cast_name).pressure);
   catch
     keyboard
   end
@@ -298,43 +336,55 @@ for ncast = 1:numel(cruise_station)
   plot(ax,ctd.density(idx_ctd),ctd.pressure(idx_ctd),'k-s','MarkerFaceColor',clrs(ncast,:),'MarkerSize',8,'DisplayName',plot_text);
   % Plot discrete bottle density
   plot(ax,calcasts.density(idx_bot),calcasts.Pressure(idx_bot),'kh','MarkerSize',12,'MarkerFaceColor',clrs(ncast,:),'LineWidth',1,'DisplayName',['Discrete samples ' ctd_str]);
+  % Plot discrete bottle density interpolated to mooring depth
+  plot(ax,calcasts.density_interp(idx_bot),calcasts.Pressure_interp(idx_bot),'k<','MarkerSize',12,'MarkerFaceColor',clrs(ncast,:),'LineWidth',1,'DisplayName',['Discrete samples ' ctd_str '\_interpolated']);
   % plot sensor density
   plot(ax,mtch.(cast_name).density,mtch.(cast_name).pressure,'kd','MarkerSize',12,'MarkerFaceColor',clrs(ncast,:),'LineWidth',1,'DisplayName',[inst ' Density @' ctd_str]);
+
   %% Parameter vs Pressure
   plot(ax2,calcasts.(var_name)(idx_bot),calcasts.Pressure(idx_bot),'k-h','MarkerFaceColor',clrs(ncast,:),'MarkerSize',10,'DisplayName',bot_str);
+  if ismember([var_name '_interp'],calcasts.Properties.VariableNames)
+    plot(ax2,calcasts.([var_name '_interp'])(imin),mtch.(cast_name).pressure,'k<','MarkerFaceColor',clrs(ncast,:),'MarkerSize',12,'DisplayName',[bot_str '\_interpolated']);
+  end
+  %Plot insitu values too
   %Plot insitu values too
   if strcmp(calvar,'pH')
     imin = nearest(calcasts.Pressure(mtch.(cast_name).idx_bot),mtch.(cast_name).pressure);
     imin = mtch.(cast_name).idx_bot(imin);
-    plot(ax2,calcasts.pH_insitu(imin),calcasts.pH_insitu_pressure(imin),'kh','MarkerFaceColor',clrs(ncast,:),'MarkerSize',8,'DisplayName',strrep(bot_str,'_calc','_insitu(CO2SYS)'));
-    %plot(ax2,calcasts.pH_insitu(imin),calcasts.pH_insitu_pressure(imin),'kh','MarkerFaceColor',clrs(ncast,:),'MarkerSize',8,'DisplayName',strrep(bot_str,'_calc','_insitu(CO2SYS)'));
+    try
+      plot(ax2,calcasts.pH_insitu(imin),calcasts.pH_insitu_pressure(imin),'ko','MarkerFaceColor',clrs(ncast,:),'MarkerSize',8,'DisplayName',strrep(bot_str,'_calc','_insitu(CO2SYS)'));
+    catch
+      keyboard
+    end
   end
   
-  plot(ax2,mtch.(cast_name).(smo_var),   mtch.(cast_name).pressure,'ko','MarkerSize',10,'MarkerFaceColor',clrs(ncast,:),'LineWidth',1,'DisplayName',[smo_str ' @' ctd_str]);
+  plot(ax2,mtch.(cast_name).(smo_var),   mtch.(cast_name).pressure,'kd','MarkerSize',10,'MarkerFaceColor',clrs(ncast,:),'LineWidth',1,'DisplayName',[smo_str ' @' ctd_str]);
   if plot_cor
     plot(ax2,mtch.(cast_name).(cor_var), mtch.(cast_name).pressure,'kd','MarkerSize',10,'MarkerFaceColor',clrs(ncast,:),'LineWidth',1,'DisplayName',[cor_str ' @ ' ctd_str]);
   end
   %% Salinity vs Pressure
   % Plot full cast density
   plot(ax3,ctd.salinity(idx_ctd),ctd.pressure(idx_ctd),'k-s','MarkerFaceColor',clrs(ncast,:),'MarkerSize',8,'DisplayName',plot_text);
-  % Plot discrete bottle density
+  % Plot discrete bottle salinity
   plot(ax3,calcasts.Salinity(idx_bot),calcasts.Pressure(idx_bot),'kh','MarkerSize',12,'MarkerFaceColor',clrs(ncast,:),'LineWidth',1,'DisplayName',['Discrete samples ' ctd_str]);
+  % Plot discrete bottle salinity interpolated to mooring depth
+  plot(ax3,calcasts.Salinity_interp(idx_bot),calcasts.Pressure_interp(idx_bot),'k<','MarkerSize',12,'MarkerFaceColor',clrs(ncast,:),'LineWidth',1,'DisplayName',['Discrete samples ' ctd_str '\_interpolated']);
   % plot sensor salinity
-  plot(ax3,mtch.(cast_name).salinity,mtch.(cast_name).pressure,'kd','MarkerSize',12,'MarkerFaceColor',clrs(ncast,:),'LineWidth',1,'DisplayName',[inst ' Salinity @' ctd_str]);
+  plot(ax3,mtch.(cast_name).salinity,mtch.(cast_name).pressure,'kd','MarkerSize',12,'MarkerFaceColor',clrs(ncast,:),'LineWidth',1,'DisplayName',[inst ' Salinity @' ctd_str]);  
 
 end
 
 % % Plot AMBON CEO16 and CEO17 profiles.... no nitrate but just for
 % % comparison sake
 % if strcmp(cfg.project,'CEO_2016')
-%   
+%
 %   idx_bot = find(strcmp(calcasts.StationID,'CEO16'),1);
 %   idx_ctd = find(strcmp(ctd.Station,'CEO16'));
 %   plot_text = [pad(calcasts.CRUISE{idx_bot},10) ' | Station: ' pad(calcasts.StationID{idx_bot},10) ' Cast#'  num2str(calcasts.CastID(idx_bot)) ...
 %     ' | ' num2str(calcasts.distkm(idx_bot)) 'km away' ...
 %     ' & ' num2str(calcasts.disthr(idx_bot)) 'hr off'];
 %   plot(ax,ctd.density(idx_ctd),ctd.pressure(idx_ctd),'k-s','MarkerFaceColor','k','MarkerSize',8,'DisplayName',plot_text);
-%   
+%
 %   idx_bot = find(strcmp(calcasts.StationID,'CEO17'),1);
 %   idx_ctd = find(strcmp(ctd.Station,'CEO17'));
 %   plot_text = [pad(calcasts.CRUISE{idx_bot},10) ' | Station: ' pad(calcasts.StationID{idx_bot},10) ' Cast#'  num2str(calcasts.CastID(idx_bot)) ...
@@ -403,18 +453,25 @@ for nclosest = 1:numel(cruise_station)
   plot(a,calcasts.dnum(imin),calcasts.(var_name)(imin),'kh','MarkerSize',16,'MarkerFaceColor',clrs(nclosest,:),'LineWidth',1,'DisplayName',plot_text);
   plot(a2,calcasts.dnum(imin),calcasts.density(imin),'kh','MarkerSize',16,'MarkerFaceColor',clrs(nclosest,:),'LineWidth',1,'DisplayName',plot_text);
   plot(a3,calcasts.dnum(imin),calcasts.Salinity(imin),'kh','MarkerSize',16,'MarkerFaceColor',clrs(nclosest,:),'LineWidth',1,'DisplayName',plot_text);
-    
+  % Plot interpolated values too
+  if ismember([var_name '_interp'],calcasts.Properties.VariableNames)
+    plot(a,calcasts.dnum(imin),calcasts.([var_name '_interp'])(imin),'k<','MarkerFaceColor',clrs(ncast,:),'MarkerSize',8,'DisplayName',[bot_str '\_interpolated']);
+    plot(a2,calcasts.dnum(imin),calcasts.density_interp(imin),'k<','MarkerSize',8,'MarkerFaceColor',clrs(nclosest,:),'LineWidth',1,'DisplayName',[plot_text '\_interpolated']);
+    plot(a3,calcasts.dnum(imin),calcasts.Salinity_interp(imin),'k<','MarkerSize',8,'MarkerFaceColor',clrs(nclosest,:),'LineWidth',1,'DisplayName',[plot_text '\_interpolated']);
+  end
   %Plot insitu values too
   if strcmp(calvar,'pH')
-    plot(a,calcasts.dnum(imin),calcasts.pH_insitu(imin),'kh','MarkerFaceColor',clrs(nclosest,:),'MarkerSize',8,'DisplayName',strrep(plot_text,'_calc','_insitu(CO2SYS)'));
+    plot(a,calcasts.dnum(imin),calcasts.pH_insitu(imin),'ko','MarkerFaceColor',clrs(nclosest,:),'MarkerSize',8,'DisplayName',strrep(plot_text,'_calc','_insitu(CO2SYS)'));
     if isfield(data_avg,'pco2')
-      plot(a4,calcasts.dnum(imin),calcasts.pCO2_insitu(imin),'kh','MarkerFaceColor',clrs(nclosest,:),'MarkerSize',8,'DisplayName',strrep(plot_text,'pH_calc','pCO2_insitu(CO2SYS)'));
+      plot(a4,calcasts.dnum(imin),calcasts.pCO2_insitu(imin),'ko','MarkerFaceColor',clrs(nclosest,:),'MarkerSize',8,'DisplayName',strrep(plot_text,'pH_calc','pCO2_insitu(CO2SYS)'));
       a4.YLabel.String = 'pCO_2';
+      plot(a4,mtch.(cast_name).datenum,calcasts.pCO2_calc_interp(imin),'k<','MarkerFaceColor',clrs(ncast,:),'MarkerSize',8,'DisplayName',[bot_str '\_interpolated']);
+      
     end
   end
 end
 ylabel(a,var_string); ylim(a,[-10 60]);
-axis(a,'tight'); 
+axis(a,'tight');
 datetick(a,'x','keeplimits'); a.XTickLabel = [];
 linkaxes([a a2 a3],'x');
 datetick(a2,'x','keeplimits'); a2.XTickLabel = [];
@@ -434,8 +491,8 @@ end
 % point
 
 % makefig; a = gca; a.Color = [0.75 0.75 0.75];hold(a,'on'); grid(a,'on'); a.YDir = 'normal';
- makefig; a1 = subplot(2,1,1);a1.Color = [0.75 0.75 0.75];hold(a1,'on'); grid(a1,'on'); a1.YDir = 'normal';
- a2 = subplot(2,1,2); a2.Color = [0.75 0.75 0.75];hold(a2,'on'); grid(a2,'on'); a2.YDir = 'normal';
+makefig; a1 = subplot(2,1,1);a1.Color = [0.75 0.75 0.75];hold(a1,'on'); grid(a1,'on'); a1.YDir = 'normal';
+a2 = subplot(2,1,2); a2.Color = [0.75 0.75 0.75];hold(a2,'on'); grid(a2,'on'); a2.YDir = 'normal';
 
 % if strcmp(cfg.project,'CEO_2017')
 %   casts = casts(2:end);
@@ -463,7 +520,7 @@ for ncast = 1:numel(cruise_station)
     plot(a1,data_avg.density(idx_data),varfit,'m-','LineWidth',2,'DisplayName',[inst ': Density NO_{3 TCSS} regression'])
     text(a1,0.02,ypos-0.05,[inst ' ' strrep(cor_var,'_','\_') ' Slope = ' num2str(p(1),'%.2f')],'units','normalized','FontSize',14,'FontWeight','bold','Color',clrs(ncast,:))
   end
-
+  
   % Discrete Samples
   plot(a1,calcasts.density(idx_bot),calcasts.(var_name)(idx_bot),'kh','MarkerSize',15,'MarkerFaceColor',clrs(ncast,:),'LineWidth',1,'DisplayName',['Discrete samples ' bot_str]);
   % Discrete sample linear fit
@@ -473,7 +530,7 @@ for ncast = 1:numel(cruise_station)
   %ypos = ypos - numel(cruise_station)*0.1;
   
   %% Salinity
-   % smoothed data
+  % smoothed data
   plot(a2,data_avg.salinity(idx_data),data_avg.(smo_var)(idx_data),'ko','MarkerSize',8,'MarkerFaceColor',clrs(ncast,:), 'DisplayName',smo_str)
   [p,S] = polyfit(data_avg.salinity(idx_data),data_avg.(smo_var)(idx_data),1); varfit = polyval(p,data_avg.salinity(idx_data),S);
   plot(a2,data_avg.salinity(idx_data),varfit,'k-','LineWidth',2,'DisplayName',[inst ': salinity ' var_string ' regression'])
@@ -498,7 +555,12 @@ for ncast = 1:numel(cruise_station)
   if strcmp(calvar,'pH')
     imin = nearest(calcasts.Pressure(mtch.(cast_name).idx_bot),mtch.(cast_name).pressure);
     imin = mtch.(cast_name).idx_bot(imin);
-    plot(a2,calcasts.pH_insitu_salinity(imin),calcasts.pH_insitu(imin),'kh','MarkerFaceColor',clrs(ncast,:),'MarkerSize',10,'LineWidth',2,'DisplayName',strrep(bot_str,'_calc','_insitu(CO2SYS)'));
+    try
+      plot(a2,calcasts.pH_insitu_salinity(imin),calcasts.pH_insitu(imin),'ko','MarkerFaceColor',clrs(ncast,:),'MarkerSize',10,'LineWidth',2,'DisplayName',strrep(bot_str,'_calc','_insitu(CO2SYS)'));
+      
+    catch
+      keyboard
+    end
   end
 end
 a1.XLabel.String = 'Density [kg/m^3]';
@@ -522,7 +584,7 @@ end
 %% 12 | FINALLY - CHOOSE WHAT TO DO
 % After examining the plots to determine if any discrete samples will be
 % useful as calibration points - prompts user to decide which/how to store
-% the individual calibration points. 
+% the individual calibration points.
 discrete = struct(); % structure that will hold all discrete cal point information
 ncal     = 0;        % discrete calibraiton point counter
 DONE_CHOOSING = 0;   % switch to exit loop
@@ -552,7 +614,7 @@ while ~DONE_CHOOSING
     while ~DONE_CHOOSING_CALPOINTS
       %% Select cruise
       fprintf('\nSelect which cruise & cast\n')
-      fprintf('  ___________________________________________________________________________\n') 
+      fprintf('  ___________________________________________________________________________\n')
       fprintf('       Cruise       Station       Distance(km)  Distance(hr)\n')
       fprintf('  ---------------------------------------------------------------------------\n')
       num = 0;
@@ -568,7 +630,7 @@ while ~DONE_CHOOSING
       chc_cruise = input('  Enter which cruise: ');
       if chc_cruise == num+1
         DONE_CHOOSING_CALPOINTS = 1;
-        DONE_CHOOSING           = 1; 
+        DONE_CHOOSING           = 1;
         continue
       else
         % Update discrete calibraiton point counter
@@ -598,17 +660,18 @@ while ~DONE_CHOOSING
         fprintf('How do you want to store the discrete calibration point?\n')
         fprintf('  <S>  SINGLE point\n')
         fprintf('  <A>  AVERAGE points\n')
-        if ~strcmp(calvar,'pH') % don't give the option of interpolating because will be caluclated at in-situ temperature/salinity later
-          fprintf('  <I>  INTERPOLATE points\n')
+        fprintf('  <I>  INTERPOLATE points\n')
+        if strcmp(calvar,'pH') % don't give the option of interpolating because will be caluclated at in-situ temperature/salinity later
+          fprintf('  <P>  INSITU pH\n')
         end
         fprintf('  <99>  STOP\n')
         chc_method = input('  Enter choice: ','s');
         chc_method = upper(chc_method);
-        if ismember(chc_method,{'A' 'S' 'I'})
+        if ismember(chc_method,{'A' 'S' 'I' 'P'})
           done_method = 1;
         elseif strcmp(chc_method,'99')
           keyboard
-          done_method = 0; 
+          done_method = 0;
         else
           fprintf('  .... you input "%s"... not an option, try again\n',chc_method)
           done_method = 0;
@@ -621,9 +684,12 @@ while ~DONE_CHOOSING
         case 'I'
           method = 'interpolate';
           fprintf('\n  Select discrete sample points to use for interpolation \n')
-        case 'A'
+        case 'A' 
           method = 'average';
           fprintf('\n  Select discrete sample points to use for average \n')
+        case 'P' % INSITU pH
+          method = 'insitu';
+          fprintf('\n  Select discrete sample point\n')
       end
       % print to screen
       if strcmp(calvar,'pH')
@@ -635,18 +701,18 @@ while ~DONE_CHOOSING
         if strcmp(calvar,'pH')
           var = calcasts.parameter{idx_bot(1)};
           fprintf('    <N%d>  %s\t%s\t%d  %.1f \t %.1fkm away \t %.1fhr away \t %.4f \t %.4f@%.1fdbar\n',nsamp,pad(calcasts.CRUISE{idx_bot(nsamp)},10),pad(calcasts.StationID{idx_bot(nsamp)},10),...
-                                                                                    calcasts.CastID(idx_bot(nsamp)), calcasts.Pressure(idx_bot(nsamp)), ...
-                                                                                    calcasts.distkm(idx_bot(nsamp)), calcasts.disthr(idx_bot(nsamp)),...
-                                                                                    calcasts.(var)(idx_bot(nsamp)),  calcasts.pH_insitu(idx_bot(nsamp)), calcasts.pH_insitu_pressure(idx_bot(nsamp)));
+            calcasts.CastID(idx_bot(nsamp)), calcasts.Pressure(idx_bot(nsamp)), ...
+            calcasts.distkm(idx_bot(nsamp)), calcasts.disthr(idx_bot(nsamp)),...
+            calcasts.(var)(idx_bot(nsamp)),  calcasts.pH_insitu(idx_bot(nsamp)), calcasts.pH_insitu_pressure(idx_bot(nsamp)));
         else
           fprintf('    <N%d>  %s\t%s\t%d  %.1f \t %.1fkm away \t %.1fhr away\n',nsamp,calcasts.CRUISE{idx_bot(nsamp)},calcasts.StationID{idx_bot(nsamp)},...
-                                                                                      calcasts.CastID(idx_bot(nsamp)), calcasts.Pressure(idx_bot(nsamp)), ...
-                                                                                      calcasts.distkm(idx_bot(nsamp)), calcasts.disthr(idx_bot(nsamp)));
+            calcasts.CastID(idx_bot(nsamp)), calcasts.Pressure(idx_bot(nsamp)), ...
+            calcasts.distkm(idx_bot(nsamp)), calcasts.disthr(idx_bot(nsamp)));
         end
       end
       % use full method string for clarity (could use chc_method still)
       switch method
-        case 'single'
+        case {'single' 'insitu'}
           fprintf('\n  Select discrete sample point \n')
           chc_sample = input('  Enter sample choice N#: ');
           discrete_samples = calcasts(idx_bot(chc_sample),:);
@@ -675,20 +741,24 @@ while ~DONE_CHOOSING
           end
       end %% CHC_METHOD
       discrete.number_of_samples = ncal;
-
+      
       %% Fill discrete structure with discrete calibration point information
       scal = ['cal' num2str(ncal)];
       discrete.(scal) = struct();
       discrete.(scal).info   = discrete_samples; % table with all cast information
       discrete.(scal).method = method;           % method used to calculate cal point
       var = discrete_samples.parameter{1};
-      if strcmp(var,'pH') || strcmp(var,'pH_calc') && ismember('pH_insitu',discrete_samples.Properties.VariableNames)
-        fprintf('Using pH_insitu as variable***\n')
+      if strcmp(var,'pH') || strcmp(var,'pH_calc') && strcmp(method,'insitu')
         var = 'pH_insitu';
         pvar = 'pH_insitu_pressure';
         svar = 'pH_insitu_salinity';
         tvar = 'pH_insitu_temperature';
         uvar = 'pH_u';
+      elseif strcmp(method,'interpolate')
+        var =  [var '_interp'];
+        pvar = 'Pressure_interp';
+        svar = 'Salinity_interp';
+        tvar = 'Temp_interp';
       else
         pvar = 'Pressure';
         svar = 'Salinity';
@@ -710,20 +780,26 @@ while ~DONE_CHOOSING
         case 'interpolate'
           discrete.(scal).pressure = nanmean(mtch.(cast_name).pressure);
           discrete.(scal).(var)    = round(interp1(discrete_samples.Pressure,discrete_samples.(var),mtch.(cast_name).pressure),5);
-          discrete.(scal).header   = [strtitle ' Niskins:' num2str(discrete_samples.Niskin(1)) ' interpolated to ' inst ' pressure'];
+          discrete.(scal).header   = [strtitle ' Niskins:' num2str(discrete_samples.Niskin') ' interpolated to ' inst ' pressure'];
           discrete.(scal).label1   = [discrete.(scal).header ' ' num2str(discrete_samples.distkm(1),'%.1f') 'km ' num2str(discrete_samples.disthr(1),'%.1f') 'hr'];
-        case 'single'
+        case {'single' 'insitu'}
           discrete.(scal).(var)    = round(discrete_samples.(var),5);
           discrete.(scal).header   = [strtitle ' Niskin:' num2str(discrete_samples.Niskin)];
           discrete.(scal).label1   = [discrete.(scal).header ' ' num2str(discrete_samples.distkm,'%.1f') 'km ' num2str(discrete_samples.disthr,'%.1f') 'hr ' num2str(discrete_samples.distdb,'%.1f') 'dbar'];
-      end 
+      end
       discrete.(scal).label2 = shortlab;
     end %% while ~DONE_CHOOSING_CALPOINTS
   end %% YES/NO SELECT CALPOINTS
 end %% while ~DONE_CHOOSING (whether or not to select calpoints
 
 %% 13 | Store discrete data points and save data
-save(cfg.path.calfile_step3,'discrete')
+%% 13 | Store discrete data points and save data
+if isfield(cfg.path,'calfile_step3')
+  discrete_filename = cfg.path.calfile_step3;
+else
+  discrete_filename = fullfile(cfg.datadir,[cfg.project '_discrete_selected.mat']);
+end
+save(discrete_filename,'discrete');
 cfg.cal_discrete = discrete;
 end %% MAIN FUNCTION
 
