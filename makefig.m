@@ -15,13 +15,28 @@ end
 fig = figure(n);
 fig.Units = 'inches';
 %fig.Position = [20.3021 0.5104 17.0312 9.4479];
-if ispc
-  fig.Position  = [20 0.415 20 10.03125];
-else
-  fig.Position  = [20 8 15 10];
+% if ispc
+%   %fig.Position  = [20 0.415 20 10.03125];
+%   fig.Position = [11.4583    2.3229    8.5312    8.0312];
+% else
+%   fig.Position  = [20 8 15 10];
+% end
+
+% Set to 1/3 screen size
+% Set screen size based on computer
+set(0,'units','inches');%Sets the units of your root object (screen) to inches
+Inch_SS = get(0,'screensize');%Obtains this inch information
+pos_x      = Inch_SS(1);
+pos_y      = Inch_SS(2);
+plotwidth  = Inch_SS(3)*1/3;
+plotheight = Inch_SS(4);
+MP = get(0, 'MonitorPositions');
+N = size(MP, 1);
+if N == 2
+  pos_x = pos_x + MP(2,1);
 end
-% scnsize = get(0,'ScreenSize');
-% fig.Position = scnsize;
+fig.Position = [pos_x pos_y plotwidth plotheight];
+
 fig.PaperPositionMode = 'auto';
 fig.PaperOrientation = 'portrait';
 % axes defaults
